@@ -154,7 +154,7 @@ def spectral_abscissa(matrix):
         that is the greatest real part of the matrix A's spectrum
     """
     real_ew = np.real(eigenvalue(matrix))  # Re(ew)
-    max_real_ew = np.argmax(real_ew)  # Max(Re(ew))
+    max_real_ew = np.max(real_ew)  # Max(Re(ew))
 
     return max_real_ew
 
