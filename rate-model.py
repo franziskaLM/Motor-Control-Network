@@ -6,7 +6,7 @@ import scipy.stats as ss
 import preparation
 import initial_states
 
-
+random.seed(42)
 # System Parameters
 N = 200 #number of neurons
 n_ex = N / 2    #number of exhibitory neurons
@@ -14,27 +14,38 @@ n_in = N - n_ex #number of inhibitory neurons
 r_0 = 5
 r_max = 100
 tau = 200  #time-constante in ms
-simulation_time = 10000 # ms
-delta_t = 10 #duration of a time-step
+simulation_time = 2000 #ms
+delta_t = 1 #duration of a time-step
+state_number = 0
 
 
+# Stimulus Parameter
+t_go = 1000 #in ms
+tau_before_go = 400 #in ms
+tau_after_go = 2 #in ms
+
+#initial systems
 matrix = preparation.main(N, n_ex, n_in)
-#initial_states = initial_states.main(N,matrix)
-#print(initial_states)
+initial_state = initial_states.main(N,matrix)[state_number]
+
+def calculate_g():
+    g = np.zeros((N,1))
+    for i, unit in enumerate(initial_state):
+        if unit[0] < 0:
+            g[i] = r_0 * math.tanh(unit[0] / r_0)
+        else:
+            g[i] = (r_max - r_0) * math.tanh(unit[0] / (r_max - r_0))
+    return g
 
 
 
-#def matrix(N):
-    #w_ex = 1
-    #w_in = -1
-    #matrix1 = scipy.sparse.random(N, int(N/2), density=0.1,data_rvs=np.ones)
-    #matrix2 = scipy.sparse.random(N, int(N/2), density=0.1,data_rvs=np.ones)
-    #matrix1 = np.array(matrix1.todense()) * w_ex
-    #matrix2 = np.array(matrix2.todense()) * w_in
-    #print(np.hstack((matrix1,matrix2)))
-    #return np.hstack((matrix1,matrix2))
+def matrix_dot_g():
+    g = calculate_g()
+    return matrix @ g
 
-#matrix = matrix(N)
+
+matrix_dot_g = matrix_dot_g()
+
 
 def ornstein_uhlenbeck():
     """
@@ -51,7 +62,7 @@ def ornstein_uhlenbeck():
 
     kappa = 20  # mean reversion coefficient in Hz
     theta = 0  # long term mean in Hz
-    sigma = 1.2
+    sigma = 1.5
     #std_asy = np.sqrt(sigma ** 2 / (2 * kappa))  # asymptotic standard deviation 0.2Hz
 
     X0 = 0  # start value in Hz
@@ -67,15 +78,7 @@ def ornstein_uhlenbeck():
 
 
 
-def create_state_space():   #TODO: state_space
-    """
-
-    Returns:
-        random N-dim. vector, values betwenn (0,1)
-
-    """
-    v =  5 * np.random.rand(N,1)
-    return v
+######################################################################################
 
 
 
@@ -84,11 +87,12 @@ class Network:
 
     def __init__(self):
 
-        self.state_space = create_state_space()
+        self.state_space = -0.5 + np.random.rand(N,1)
         self.noise = ornstein_uhlenbeck()
-       # self.initial_state
         self.delta_r = np.zeros((N,1))
         self.update_delta_r()
+        self.stimulus = initial_state - matrix_dot_g
+        self.initial_state = initial_state
         self.time = 0
 
     def __str__(self):
@@ -125,6 +129,8 @@ class Network:
         #print("Noise:"+str(self.noise[simulation_step]))
         return self.noise[:,simulation_step]
 
+
+
     def update_delta_r(self):
         """
 
@@ -139,7 +145,6 @@ class Network:
                 self.delta_r[i] = (r_max - r_0) * math.tanh(unit[0] / (r_max - r_0))
 
 
-
     def get_input(self):
         """
 
@@ -147,8 +152,13 @@ class Network:
             dot product of connectivity matrix * firing rate + constant input
 
         """
-        return (matrix @ self.delta_r) + self.get_noise()
+        return (matrix @ self.delta_r) + self.get_noise() + self.stimulus
 
+    def update_stimulus(self):
+        if self.time < t_go:
+            self.stimulus = math.exp(self.time / tau_before_go) * (initial_state - matrix_dot_g)
+        else:
+            self.stimulus = math.exp( - self.time / tau_after_go) * (initial_state - matrix_dot_g)
 
     def update_steady_state(self):
         """
@@ -171,12 +181,15 @@ class Network:
     def update(self):
         self.update_steady_state()
         self.update_delta_r()
+        self.update_stimulus()
+        #print(self.stimulus+self.state_space)
         self.update_time()
 
 
     def run(self):
         while self.time < simulation_time:
             self.update()
+
 
     def show_run(self):
         x_data = []
