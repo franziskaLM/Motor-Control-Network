@@ -5,20 +5,15 @@ from scipy.sparse import coo_array
 from scipy import linalg
 import random
 import math
+import matplotlib.pyplot as plt
 
-# System Parameter
-N = 10
-n_ex = int(N / 2)
-n_in = int(N - n_ex)
 
 # Connectivity attributes
-R = 10  # spectral radius
-p = 0.1  # connectivity density of exhibi. weights
-p_in = 0.4  # connectivity density of inhibi. weights
+R = 10    #spectral radius
+p = 0.1  # connectivity density of exhibi. neurons
+p_in = 0.4  # connectivity density of inhibi. neurons
 gamma = 3
-omega = (math.sqrt(2) * R) / (math.sqrt(p * (1 - p) * (1 + gamma ** 2)))
-w_ex = omega / math.sqrt(N)
-w_in = -1 * gamma * omega / math.sqrt(N)
+omega = (math.sqrt(2) * R) / (math.sqrt(p * (1 - p) * (1 + (gamma ** 2))))
 eta = 10  # learning rate
 
 
@@ -35,8 +30,8 @@ def all_indices(size: tuple) -> list:
         list of all matrix indices
 
     """
-    first_dim = size[0]
-    second_dim = size[1]
+    first_dim = int(size[0])
+    second_dim = int(size[1])
     indices_list = []
     for i in range(first_dim):
         for j in range(second_dim):
@@ -89,25 +84,27 @@ def initially_entries(size, dens, weight, free) -> tuple:
     return (row, col, val), free
 
 
-def exhibi() -> tuple:
+def exhibi(N, n_ex) -> tuple:
     """
         return: tuple of coo-matrix (row, columns, values) and list with free indices
     """
     size = (N, n_ex)
+    w_ex = omega / math.sqrt(N)
     (block_ex, free_ex) = initially_entries(size, p, w_ex, all_indices(size))
     return block_ex, free_ex
 
 
-def inhibi():
+def inhibi(N, n_in):
     """
         return: tuple of coo-matrix (row, columns, values) and list with free indices
     """
     size = (N, n_in)
+    w_in = -1 * gamma * omega / math.sqrt(N)
     (block_in, free_in) = initially_entries(size, p_in, w_in, all_indices(size))
     return block_in, free_in
 
 
-def sparse_matrix(exhibi_block, inhibi_block):
+def sparse_matrix(exhibi_block, inhibi_block, N, n_ex, n_in):
     """
 
     Args:
@@ -118,7 +115,7 @@ def sparse_matrix(exhibi_block, inhibi_block):
         Connectivity Matrix in sparse-shape
     """
     coo_inhibi = coo_array((inhibi_block[2], (inhibi_block[0], inhibi_block[1])),
-                           shape=(N, n_in))  # coo_array(data,(rows,columns))
+                           shape=(int(N), int(n_in)))  # coo_array(data,(rows,columns))
     coo_exhibi = coo_array((exhibi_block[2], (exhibi_block[0], exhibi_block[1])), shape=(N, n_ex))
     w = scipy.sparse.hstack([coo_exhibi, coo_inhibi])
     return w
@@ -137,7 +134,7 @@ def eigenvalue(matrix):
         matrix: Input Matrix
 
     Returns:
-        returns the eigenvalues ew of matrix A
+        returns the eigenvalues ew of matrix
     """
     ew, *_ = linalg.eig(matrix)  # return (eigenvalue,eigenvektor)
     return ew
@@ -170,12 +167,15 @@ def smoothed_sa(matrix):
         that is defined by the 1.5 fold of the spectral abscissa sa
     """
     sa = spectral_abscissa(matrix)
-    return 1.5 * sa
+    if 1.5 * sa > sa + 0.2:
+        return 1.5 * sa
+    else:
+       return sa + 0.2
 
 
-########## Helper Functions for calculation the Gradient ########
+########## Helper Functions for calculation of the Gradient ########
 
-def shifted_matrix(matrix, sa):
+def shifted_matrix(matrix, ssa, N):
     """
     Args:
         matrix: input matrix
@@ -185,11 +185,11 @@ def shifted_matrix(matrix, sa):
        diagonal N x N Matrix ;
         main diagonal filled with value of the smoothed spectral abscissa
     """
-    diag = [sa] * N
+    diag = [ssa] * N
     return np.diag(diag)
 
 
-def shifter(A, sa):
+def shifter(A, ssa, N):
     """
     Args:
         matrix: input matrix
@@ -198,10 +198,10 @@ def shifter(A, sa):
     Returns:
        return of the shifted Matrix (A-shift*1)
     """
-    return A - shifted_matrix(A, sa)
+    return A - shifted_matrix(A, ssa, N)
 
 
-def solve_lyapunov(A):
+def solve_lyapunov(A, N):
     """
 
     Args:
@@ -218,7 +218,7 @@ def solve_lyapunov(A):
     return scipy.linalg.solve_continuous_lyapunov(A, Z)
 
 
-def calculate_Q(ws):
+def calculate_Q(ws, N):
     """
     Args:
         A: Input Matrix
@@ -231,10 +231,10 @@ def calculate_Q(ws):
     """
 
     ws_trans = np.transpose(ws)  # transposed matrix ws
-    return solve_lyapunov(ws_trans)
+    return solve_lyapunov(ws_trans, N)
 
 
-def calculate_P(ws):
+def calculate_P(ws, N):
     """
     Args:
         A: Input Matrix
@@ -245,10 +245,10 @@ def calculate_P(ws):
         that is Solution to the equation ( ws*Q + Q*ws_trans = -2*I)
 
     """
-    return solve_lyapunov(ws)
+    return solve_lyapunov(ws, N)
 
 
-def gradient(A, sa):
+def gradient(A, ssa, N):
     """
 
     Args:
@@ -259,9 +259,9 @@ def gradient(A, sa):
         gradient for minimization of the smoothed abscissa
 
     """
-    ws = shifter(A, sa)
-    Q = calculate_Q(ws)
-    P = calculate_P(ws)
+    ws = shifter(A, ssa, N)
+    Q = calculate_Q(ws, N)
+    P = calculate_P(ws, N)
     grad = Q @ P / np.trace(Q @ P)  # gradient
 
     return grad
@@ -292,8 +292,14 @@ def enforce_negativity(block, free, x):
     col.append(new_index[1])
     free.append(old_index)
 
+def plotter(matrix):
+    ew, ev = linalg.eig(matrix)
+    real = np.real(ew)
+    imag = np.imag(ew)
+    plt.plot(real, imag, "ob")
+    plt.show()
 
-def move_weights(exhibi_block, inhibi_block, free_inhibi, old_sa, counter):
+def move_weights(exhibi_block, inhibi_block, free_inhibi, old_sa, counter, N, n_ex, n_in):
     """
 
     Args:
@@ -307,22 +313,15 @@ def move_weights(exhibi_block, inhibi_block, free_inhibi, old_sa, counter):
         recursive function that shifted the values of the connectivity matrix till spectral abscissa is converging
 
     """
-    A = sparse_to_array(sparse_matrix(exhibi_block, inhibi_block))  # connectivity matrix (array)
-    # print(A)
-    sa = smoothed_sa(A)  # smoothed spectral abscissa
-    grad = gradient(A, sa)
+    A = sparse_to_array(sparse_matrix(exhibi_block, inhibi_block, N, n_ex, n_in))  # connectivity matrix (array)
+    ssa = smoothed_sa(A)  # smoothed spectral abscissa
+    grad = gradient(A, ssa, N)
     row = inhibi_block[0]
     col = inhibi_block[1]
     weights = inhibi_block[2]
-    print("sa: " + str(sa))
-
-    if old_sa == sa:
-        counter += 1
-    else:
-        old_sa = sa
-        counter = 0
-
-    if counter > 5:  ### TODO: Konvergenz!
+    #print("smoothed spectral abscissa:"+str(ssa))
+    if ssa <= 0.81:
+        #print(A)
         return A
     else:
         x = 0
@@ -336,23 +335,30 @@ def move_weights(exhibi_block, inhibi_block, free_inhibi, old_sa, counter):
             else:
                 weights[x] = weight
             x += 1
-        return move_weights(exhibi_block, (row, col, weights), free_inhibi, old_sa, counter)
+        return move_weights(exhibi_block, (row, col, weights), free_inhibi, old_sa, counter, N, n_ex , n_in)
 
 
-def main():
+def main(N, n_ex, n_in):
+
     """
 
     Returns:
         optimized connectivity matrix
 
     """
-
     # create left side of connectivity matrix
-    exh = exhibi()[0]
+    exh = exhibi(N, n_ex)[0]
     # create right side of connectivity matrix
-    inh, free = inhibi()
+    inh, free = inhibi(N, n_in)
+    return move_weights(exh, inh, free, 0, 0, int(N), int(n_ex), int(n_in))
 
-    return move_weights(exh, inh, free, 0, 0)
+
+#w=main(4, 2, 2)
+#print(w)
+#ew,ev = linalg.eig(w)
+#real = np.real(ew)
+#imag = np.imag(ew)
+#plt.plot(real, imag,"ob")
+# #plt.show()
 
 
-print(main())
