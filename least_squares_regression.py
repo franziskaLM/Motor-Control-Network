@@ -6,15 +6,12 @@ import random
 
 def zip_of(trajectories):
     """
-
     Args:
         trajectories: array with x- (or y-) coordinates for all trajectories in every given direction
-
     Returns: create an array with consideration of the repetitions in size ( T * directions * repetitions, 1)
             where T: number of time-steps
                   directions : number of trajectories
-                  repetitions: repeat of the executation each trajectory
-
+                  repetitions: repeat of the execution each trajectory
     """
     all_coordinates = np.zeros((len(trajectories) * number_of_repetitions * int((simulation_time - t_go) / delta_t), 1))
     i = 0
@@ -32,31 +29,41 @@ def create_Z(x_coord, y_coord):
     return (Z1, Z2)
 
 
+def short_X(X):
+    start = int(t_go / delta_t)
+    stop = start + int((simulation_time - t_go) / delta_t)
+    shorty = X[start:stop, :]
+    start = stop + int(t_go / delta_t)
+    stop = start + int((simulation_time - t_go) / delta_t)
+    while stop <= int(simulation_time / delta_t) * number_of_repetitions * number_of_trajectories:
+        shorty = np.vstack((shorty, X[start:stop, :]))
+        start = stop + int(t_go / delta_t)
+        stop = start + int((simulation_time - t_go) / delta_t)
+    return shorty
+
+
 def least_squares_regression(X, Z):
     return linalg.pinv(X.T @ X) @ X.T @ Z
 
 
 def main(X, all_Z, parameter):
     """
-
     Args:
         X: saved Fire-rates for all initial conditions and each time step
         all_Z: trajectories for each condition, seperatly saved in lists for each coordinate (x resp. y)
         parameter: dict with parameters
-
     Returns: optimized readout weights
-
     """
-    global simulation_time, delta_t, number_of_states, t_go, tau_before_go, tau_after_go
-    global number_of_repetitions
+    global simulation_time, delta_t, t_go, number_of_repetitions, number_of_trajectories
+
     N = parameter["N"]
     simulation_time = parameter["simulation_time"]  # in ms
     delta_t = parameter["delta_t"]  # duration of a time-step
     t_go = parameter["t_go"]
-    # Stimulus Parameter
-    number_of_states = parameter["number_of_states"]
+    number_of_trajectories = parameter["number_of_trajectories"]
     number_of_repetitions = parameter["number_of_repetitions"]  # number of repetitions  #TODO: Seed?
 
+    X = short_X(X)
     size_X = np.shape(X)
     X = np.hstack((X, np.ones((size_X[0], 1))))
 
