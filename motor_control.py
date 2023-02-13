@@ -2,7 +2,7 @@ import numpy as np
 import random
 import least_squares_regression
 import initial_states
-import rate_model_old
+import rate_model
 import matrix_preparation
 import matplotlib.pyplot as plt
 
@@ -107,7 +107,7 @@ def paint_trajectory(m1, b1, m2, b2, condition):
     :return: trajectory for initial condition
     """
     params["number_of_repetitions"] = 1
-    delta_r = rate_model_old.safe_data(matrix, [condition], params).T[:, int(t_go / delta_t):]
+    delta_r = rate_model.safe_data(matrix, [condition], params).T[:, int(t_go / delta_t):]
     # print(np.shape(delta_r))
     b = create_b(b1, b2)
     m = create_m(m1, m2)
@@ -123,7 +123,7 @@ def paint_all_in_one(m1,b1,m2,b2,conditions):
 
 
 def train(matrix, conditions, params):
-    return rate_model_old.safe_data(matrix, conditions, params)
+    return rate_model.safe_data(matrix, conditions, params)
 
 def main():
     global matrix
