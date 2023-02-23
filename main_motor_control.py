@@ -64,8 +64,8 @@ def create_initial_conditions(a1, a2):
     # create for each trajectory one random state condition b
     for k in range(numbers_of_trajectories):
         states.append(np.array(a2))
-            #random.choice([1, -1]) * random.uniform(0.5, 1) * np.array(a1) + random.choice([1, -1]) * random.uniform(
-            #   0.5, 1) * np.array(a2))
+            random.choice([1, -1]) * random.uniform(0.5, 1) * np.array(a1) + random.choice([1, -1]) * random.uniform(
+               0.5, 1) * np.array(a2))
     return (np.array(states))
 
 
