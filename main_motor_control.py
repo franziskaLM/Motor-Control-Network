@@ -7,7 +7,6 @@ import least_squares_regression
 import initial_states
 import rate_model
 import matrix_preparation
-import geometric_trajectorys
 import matplotlib.pyplot as plt
 
 # System Parameter of the Rate Model
@@ -41,6 +40,17 @@ params = {"N": N, "n_ex": n_ex, "n_in": n_in, "r_0": r_0, "r_max": r_max, "tau":
           "number_of_repetitions": number_of_repetitions,
           "number_of_trajectories": numbers_of_trajectories}
 
+def butterfly_trajectory():
+    """
+
+    Returns:
+        Example Trajectory: butterfly trajectory
+
+    """
+    t = np.linspace(0, 2 * np.pi, int((simulation_time - t_go) / delta_t))
+    x = np.sin(t) * (np.exp(np.cos(t)) - 2 * np.cos(4 * t) - np.sin(t / 12) ** 5)
+    y = np.cos(t) * (np.exp(np.cos(t)) - 2 * np.cos(4 * t) - np.sin(t / 12) ** 5)
+    return ([x], [y])
 
 def create_initial_conditions(a1, a2):
     """
@@ -159,7 +169,7 @@ def main():
     matrix = matrix_preparation.main(N, n_ex, n_in)  # optimized connectivity matrix
     
     #determine trajectory of the movement
-    trajectories = geometric_trajectorys.butterfly_trajectory() 
+    trajectories = butterfly_trajectory() 
     
     #create initial conditions for each trajectory
     initial_conditions = create_initial_conditions(initial_states.main(N, matrix)[0], initial_states.main(N, matrix)[1])
