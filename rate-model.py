@@ -1,5 +1,7 @@
+"""
+Rate-unit Network implemented as a Class
+"""
 import random
-
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -126,6 +128,9 @@ class Network:
             self.X[self.time][i] = unit
 
     def update(self):
+        """
+            Updating all Parameters ro a new time step
+        """
         self.safe_data()
         self.update_steady_state()
         self.update_delta_r()
