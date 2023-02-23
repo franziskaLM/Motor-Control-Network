@@ -1,3 +1,8 @@
+"""
+Optimization of a random connectivity matrix of size (N x N) through gradient-descent-method
+on the smoothed spectral abscissa 
+"""
+
 import numpy as np
 import numpy.linalg as linalg
 import scipy.sparse
@@ -351,14 +356,5 @@ def main(N, n_ex, n_in):
     # create right side of connectivity matrix
     inh, free = inhibi(N, n_in)
     return move_weights(exh, inh, free, 0, 0, int(N), int(n_ex), int(n_in))
-
-
-#w=main(4, 2, 2)
-#print(w)
-#ew,ev = linalg.eig(w)
-#real = np.real(ew)
-#imag = np.imag(ew)
-#plt.plot(real, imag,"ob")
-# #plt.show()
 
 
