@@ -1,6 +1,9 @@
 """
 This is the main program that can be used to generate, train and run a complete network
 """
+"""
+This is the main program that can be used to generate, train and run a complete network
+"""
 import numpy as np
 import random
 import least_squares_regression
@@ -26,7 +29,7 @@ tau_before_go = 400  # time const of the rise during preparation time
 tau_after_go = 2  # time const of the decay after go cue
 
 # trajectory params
-end_coord = [(1, 1)]  # , (-1, 1), (-1, -1), (1, -1)]
+end_coord = [(1, 1), (-1, 1), (-1, -1), (1, -1)]
 numbers_of_trajectories = len(end_coord)
 
 # train system
@@ -40,17 +43,27 @@ params = {"N": N, "n_ex": n_ex, "n_in": n_in, "r_0": r_0, "r_max": r_max, "tau":
           "number_of_repetitions": number_of_repetitions,
           "number_of_trajectories": numbers_of_trajectories}
 
-def butterfly_trajectory():
+def linear_trajectory():
     """
-
-    Returns:
-        Example Trajectory: butterfly trajectory
-
+    creates linear trajectory for each given end-coordinate with start in (0,0)
+    Returns: list with tuples of (x_coordinates, y_coordinates)
     """
-    t = np.linspace(0, 2 * np.pi, int((simulation_time - t_go) / delta_t))
-    x = np.sin(t) * (np.exp(np.cos(t)) - 2 * np.cos(4 * t) - np.sin(t / 12) ** 5)
-    y = np.cos(t) * (np.exp(np.cos(t)) - 2 * np.cos(4 * t) - np.sin(t / 12) ** 5)
-    return ([x], [y])
+    trajectories_x = []  # array with x-coord of all trajectories
+    trajectories_y = []  # array with y-coord of all trajectories
+    for count, direction in enumerate(end_coord):
+        x_coord = np.zeros((int((simulation_time - t_go) / delta_t), 1))
+        y_coord = np.zeros((int((simulation_time - t_go) / delta_t), 1))
+        end_x = direction[0]
+        end_y = direction[1]
+        step_length_x = end_x / int((simulation_time - t_go) / delta_t)
+        step_length_y = end_y / int((simulation_time - t_go) / delta_t)
+        for step in range(1, (int((simulation_time - t_go) / delta_t))):
+            x_coord[step] = x_coord[step - 1] + step_length_x
+            y_coord[step] = y_coord[step - 1] + step_length_y
+        trajectories_x.append(x_coord)
+        trajectories_y.append(y_coord)
+    return (trajectories_x, trajectories_y)
+
 
 def create_initial_conditions(a1, a2):
     """
@@ -64,8 +77,8 @@ def create_initial_conditions(a1, a2):
     # create for each trajectory one random state condition b
     for k in range(numbers_of_trajectories):
         states.append(np.array(a2))
-            random.choice([1, -1]) * random.uniform(0.5, 1) * np.array(a1) + random.choice([1, -1]) * random.uniform(
-               0.5, 1) * np.array(a2))
+            #random.choice([1, -1]) * random.uniform(0.5, 1) * np.array(a1) + random.choice([1, -1]) * random.uniform(
+            #   0.5, 1) * np.array(a2))
     return (np.array(states))
 
 
@@ -86,7 +99,7 @@ def create_b(b1, b2):
 
 def create_m(m1, m2):
     """
-    
+
     Args:
         m1: projection weights for x-coord
         m2: projection weights for y-coord
@@ -109,14 +122,14 @@ def paint_trajectory(m1, b1, m2, b2, condition):
     """
     #set number of trials to 1
     params["number_of_repetitions"] = 1
-    
+
     #run the network with the given condition as stimulus
-    delta_r = rate_model.safe_data(matrix, [condition], params).T[:, int(t_go / delta_t):] 
-    
+    delta_r = rate_model.safe_data(matrix, [condition], params).T[:, int(t_go / delta_t):]
+
     #calculate projection weiht and biases wit Normal Equation
     b = create_b(b1, b2)
     m = create_m(m1, m2)
-    
+
     #linear regression
     z1, z2 = m @ delta_r + b
     return (z1, z2)
@@ -124,7 +137,7 @@ def paint_trajectory(m1, b1, m2, b2, condition):
 
 def paint_all_in_one(m1, b1, m2, b2, conditions):
     """
-    
+
     Args:
         :param m1: opt. readout weights x coord
         :param b1: const. bias x-coord
@@ -144,10 +157,10 @@ def paint_all_in_one(m1, b1, m2, b2, conditions):
 
 def train(matrix, conditions, params):
     """
-    
+
     Args:
         matrix: connectivity matrix
-        conditions: all initial condition that should be use for stimulating 
+        conditions: all initial condition that should be use for stimulating
         params: dict with stored parameters
 
     Returns:
@@ -167,20 +180,22 @@ def main():
     """
     global matrix
     matrix = matrix_preparation.main(N, n_ex, n_in)  # optimized connectivity matrix
-    
+
     #determine trajectory of the movement
-    trajectories = butterfly_trajectory() 
-    
+    trajectories = linear_trajectory()
+
     #create initial conditions for each trajectory
     initial_conditions = create_initial_conditions(initial_states.main(N, matrix)[0], initial_states.main(N, matrix)[1])
-    
+
     #run the network for each condition and trial and safe all firing rates in matrix X
     X = train(matrix, initial_conditions, params)
-    
+
     #compute projection weights for regression by Normal Equation
     m1, b1, m2, b2 = least_squares_regression.main(X, trajectories, params)
-    
+
     #plot the executete movements
     paint_all_in_one(m1, b1, m2, b2, initial_conditions)
+
+
 
 
